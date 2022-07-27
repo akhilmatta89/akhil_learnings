@@ -2,7 +2,7 @@ import json
 
 from flask import Flask, request, jsonify  # return flask.response object
 import sqlite3
-from sqlite3 import Error
+from sqlite3 import Error, IntegrityError
 import os
 
 from DataBase.perform_df_opeartions import PerformDBOperations
@@ -38,19 +38,53 @@ def create_connection():
             conn.close()
 
 
-@app.route('/courses-provided', methods=['POST'])
-def add_courses():
+@app.route('/add_course', methods=['POST'])
+def add_course():
+    """ This Method is used to add a single course to File system"""
     req = request.json
     try:
-        """ This Method is used to add a single course to File system"""
+        # ToDo Need to add validation to make sure all the inputs are given by user
         DBOperations(logger).add_course(req)
         return json.dumps({'Status':'Course added succesfully','Status_code':200})
+    except IntegrityError:
+        return json.dumps({'Status': f'machine recognised course id as duplicate',
+                           'status_code': 409})
     except Exception as e:
         return json.dumps({'Status': f'Error while inserting the Record with exception {e}',
                            'status_code': 500})
 
+@app.route('/add_courses', methods=['POST'])
+def add_courses():
+    """ This Method is used to add a multiple course to File system"""
+    # ToDo Need to add validation to make sure all the inputs are given by user
+    req = request.json
+    try:
+        any_exceptions = DBOperations(logger).add_courses(req)
+        if not any_exceptions:
+            return json.dumps({'Status':'Courses added succesfully','Status_code':200})
+        if any_exceptions:
+            raise any_exceptions[0]
+    except IntegrityError:
+        return json.dumps({'Status': f'machine recognised course id as duplicate refer logs for course_id',
+                           'status_code': 409})
+    except Exception as e:
+        return json.dumps({'Status': f'Error while inserting the Records with exception {e}, refer logs for course_id',
+                           'status_code': 500})
+
+@app.route('/retrieve_courses', methods=['GET'])
+def retrieve_courses():
+    """ This Method is used to retrive all records from file system"""
+    # ToDo Need to add validation to make sure all the inputs are given by user
+    try:
+        records = DBOperations(logger).retrieve_courses()
+        return json.dumps(records)
+    except Exception as e:
+        return json.dumps({'Status': f'Error while inserting the Records with exception {e}, refer logs for course_id',
+                           'status_code': 500})
+
 
 if __name__ == "__main__":
+    print('******************* Welcome to Akhil Learnings **************************')
     if 'Akhillearnings.db' not in current_directory:
         create_connection()
         PerformDBOperations(logger).add_courses_table()
